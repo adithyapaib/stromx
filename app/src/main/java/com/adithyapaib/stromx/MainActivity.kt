@@ -13,7 +13,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.runtime.getValue
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.adithyapaib.stromx.ble.BleViewModel
 import com.adithyapaib.stromx.garage.GarageViewModel
 import com.adithyapaib.stromx.settings.SettingsViewModel
@@ -53,7 +55,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         bleViewModel.attachBle(this)
         setContent {
-            StromXTheme {
+            val appearance by settingsViewModel.appearance.collectAsStateWithLifecycle()
+            StromXTheme(appearance) {
                 StromXApp(viewModel = bleViewModel, settings = settingsViewModel, garage = garageViewModel)
             }
         }

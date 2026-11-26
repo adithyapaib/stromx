@@ -19,6 +19,9 @@ import kotlinx.coroutines.launch
 /** The fuel bars rose by at least two while linked: almost certainly a fill-up worth logging. */
 data class FillUpPrompt(val odometerKm: Int, val fuelBars: Int, val atMs: Long)
 
+/** The highest speed seen so far; [atMs] is null when it came from rides saved before this was tracked. */
+data class TopSpeed(val kph: Int, val atMs: Long?)
+
 /** Fuel log and service reminders, driven by the bike's own odometer and fuel bars. */
 class GarageViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -38,6 +41,20 @@ class GarageViewModel(application: Application) : AndroidViewModel(application) 
     val rides: StateFlow<List<RideRecord>> = data
         .map { RideMath.newestFirst(it.rides) }
         .stateIn(viewModelScope, SharingStarted.Eagerly, RideMath.newestFirst(data.value.rides))
+
+    /** All-time top speed: the tracked value, or the fastest saved ride for data from before tracking. */
+    val topSpeed: StateFlow<TopSpeed?> = data
+        .map(::topSpeedOf)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, topSpeedOf(data.value))
+
+    private fun topSpeedOf(d: GarageData): TopSpeed? {
+        val fromRides = d.rides.maxOfOrNull { it.maxSpeedKph } ?: 0
+        return when {
+            d.topSpeedKph >= fromRides && d.topSpeedKph > 0 -> TopSpeed(d.topSpeedKph, d.topSpeedAtMs)
+            fromRides > 0 -> TopSpeed(fromRides, null)
+            else -> null
+        }
+    }
 
     /** Ticks when the app comes back to the foreground, so day-based countdowns move on. */
     private val clock = MutableStateFlow(System.currentTimeMillis())
@@ -78,6 +95,10 @@ class GarageViewModel(application: Application) : AndroidViewModel(application) 
             notifyNewlyDue()
         }
         trackRide(t)
+        // The frame carries three speed digits, 000..199; anything above is a misread.
+        if (t.speed in 1..MAX_SPEED_KPH && t.speed > data.value.topSpeedKph) {
+            update { it.copy(topSpeedKph = t.speed, topSpeedAtMs = System.currentTimeMillis()) }
+        }
         if (t.isFuelValid) {
             liveBars.value = t.fuelBars
             trackGauge(t.fuelBars, t.odometer)
@@ -267,6 +288,7 @@ class GarageViewModel(application: Application) : AndroidViewModel(application) 
         const val STEADY_FRAMES = 3
         const val MAX_DROPS = 300
         const val LOW_RANGE_KM = 40
+        const val MAX_SPEED_KPH = 199
     }
 
     private fun update(change: (GarageData) -> GarageData) {
