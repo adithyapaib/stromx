@@ -1,123 +1,81 @@
 package com.adithyapaib.stromx.ui.theme
 
 import androidx.compose.material3.Typography
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.adithyapaib.stromx.R
 
-/** Roadbook numerals and row titles: a condensed face that packs big digits into narrow boxes. */
-val Saira = FontFamily(
-    Font(R.font.saira_condensed_semibold, FontWeight.SemiBold),
-    Font(R.font.saira_condensed_bold, FontWeight.Bold),
-    Font(R.font.saira_condensed_extrabold, FontWeight.ExtraBold)
-)
-
 @OptIn(ExperimentalTextApi::class)
-private fun monoWeight(weight: FontWeight) = Font(
-    resId = R.font.roboto_mono,
+private fun geist(weight: FontWeight) = Font(
+    resId = R.font.geist,
     weight = weight,
     variationSettings = FontVariation.Settings(FontVariation.weight(weight.weight))
 )
 
-/** Labels, units and data notes: the roadbook's measured, typewritten voice. */
-val Mono = FontFamily(
-    monoWeight(FontWeight.Medium),
-    monoWeight(FontWeight.Bold)
+/** Geist, bundled as one variable font (SIL OFL, see licenses/Geist-OFL.txt). */
+val Geist = FontFamily(
+    geist(FontWeight.ExtraLight),
+    geist(FontWeight.Light),
+    geist(FontWeight.Normal),
+    geist(FontWeight.Medium),
+    geist(FontWeight.SemiBold),
+    geist(FontWeight.Bold),
+    geist(FontWeight.ExtraBold)
 )
 
 private const val TABULAR = "tnum"
 
-val Typography = Typography(
-    // Speed in the header box
-    displayLarge = TextStyle(
-        fontFamily = Saira,
-        fontWeight = FontWeight.ExtraBold,
-        fontSize = 112.sp,
-        lineHeight = 104.sp,
-        letterSpacing = (-2).sp,
-        fontFeatureSettings = TABULAR
-    ),
-    // Live distance in the NOW row
-    displaySmall = TextStyle(
-        fontFamily = Saira,
-        fontWeight = FontWeight.ExtraBold,
-        fontSize = 40.sp,
-        lineHeight = 40.sp,
-        fontFeatureSettings = TABULAR
-    ),
-    // Readings: engine, fuel, distances, screen titles
-    headlineMedium = TextStyle(
-        fontFamily = Saira,
-        fontWeight = FontWeight.ExtraBold,
-        fontSize = 34.sp,
-        lineHeight = 36.sp,
-        fontFeatureSettings = TABULAR
-    ),
-    headlineSmall = TextStyle(
-        fontFamily = Saira,
-        fontWeight = FontWeight.ExtraBold,
-        fontSize = 30.sp,
-        lineHeight = 32.sp,
-        letterSpacing = 0.5.sp
-    ),
-    // Roadbook row titles
-    titleLarge = TextStyle(
-        fontFamily = Saira,
-        fontWeight = FontWeight.Bold,
-        fontSize = 24.sp,
-        lineHeight = 26.sp
-    ),
-    titleMedium = TextStyle(
-        fontFamily = Saira,
-        fontWeight = FontWeight.Bold,
-        fontSize = 20.sp,
-        lineHeight = 22.sp
-    ),
-    bodyLarge = TextStyle(
-        fontFamily = Mono,
-        fontWeight = FontWeight.Medium,
-        fontSize = 15.sp,
-        lineHeight = 22.sp
-    ),
-    bodyMedium = TextStyle(
-        fontFamily = Mono,
-        fontWeight = FontWeight.Medium,
-        fontSize = 13.sp,
-        lineHeight = 19.sp
-    ),
-    bodySmall = TextStyle(
-        fontFamily = Mono,
-        fontWeight = FontWeight.Medium,
-        fontSize = 12.sp,
-        lineHeight = 17.sp
-    ),
-    // Buttons
-    labelLarge = TextStyle(
-        fontFamily = Saira,
-        fontWeight = FontWeight.ExtraBold,
-        fontSize = 20.sp,
-        lineHeight = 22.sp,
-        letterSpacing = 1.sp
-    ),
-    // Nav labels, chips
-    labelMedium = TextStyle(
-        fontFamily = Mono,
-        fontWeight = FontWeight.Bold,
-        fontSize = 12.sp,
-        lineHeight = 16.sp,
-        letterSpacing = 0.5.sp
-    ),
-    // Box labels (callers upper-case): SPEED · KM/H
-    labelSmall = TextStyle(
-        fontFamily = Mono,
-        fontWeight = FontWeight.Bold,
-        fontSize = 11.sp,
-        lineHeight = 14.sp,
-        letterSpacing = 1.sp
-    )
+private fun style(size: Int, line: Int, weight: FontWeight, tracking: Double = 0.0, tabular: Boolean = false) = TextStyle(
+    fontFamily = Geist,
+    fontWeight = weight,
+    fontSize = size.sp,
+    lineHeight = line.sp,
+    letterSpacing = tracking.em,
+    fontFeatureSettings = if (tabular) TABULAR else null
+)
+
+/** The app's type scale, sized like iOS text styles. Every changing number is tabular. */
+@Immutable
+data class StromXType(
+    val largeTitle: TextStyle = style(34, 41, FontWeight.Bold, 0.01),
+    val title: TextStyle = style(22, 28, FontWeight.Bold),
+    val headline: TextStyle = style(17, 22, FontWeight.SemiBold),
+    val body: TextStyle = style(17, 22, FontWeight.Normal),
+    val subhead: TextStyle = style(15, 20, FontWeight.Normal),
+    val footnote: TextStyle = style(13, 18, FontWeight.Normal),
+    val caption: TextStyle = style(12, 16, FontWeight.Normal),
+    /** Upper-case card and section labels. */
+    val label: TextStyle = style(13, 16, FontWeight.SemiBold, 0.03),
+    val tab: TextStyle = style(10, 12, FontWeight.Medium),
+    /** Live speed on the Ride screen. */
+    val speed: TextStyle = style(104, 108, FontWeight.SemiBold, -0.04, tabular = true),
+    /** Tile readings: fuel, engine, top speed, total. */
+    val reading: TextStyle = style(28, 32, FontWeight.SemiBold, tabular = true),
+    val readingLarge: TextStyle = style(40, 46, FontWeight.SemiBold, tabular = true),
+    val number: TextStyle = style(17, 22, FontWeight.SemiBold, tabular = true),
+    /** Always-on display: thin so few pixels are lit. */
+    val aodClock: TextStyle = style(76, 80, FontWeight.ExtraLight, -0.01, tabular = true),
+    val aodSpeed: TextStyle = style(150, 150, FontWeight.ExtraLight, -0.04, tabular = true)
+)
+
+/** Material components (text fields, dialogs, snackbars) pick these up. */
+val MaterialTypography = Typography(
+    displayLarge = style(57, 64, FontWeight.Normal),
+    headlineSmall = style(24, 32, FontWeight.Bold),
+    titleLarge = style(22, 28, FontWeight.Bold),
+    titleMedium = style(17, 22, FontWeight.SemiBold),
+    titleSmall = style(15, 20, FontWeight.SemiBold),
+    bodyLarge = style(17, 22, FontWeight.Normal),
+    bodyMedium = style(15, 20, FontWeight.Normal),
+    bodySmall = style(13, 18, FontWeight.Normal),
+    labelLarge = style(17, 22, FontWeight.SemiBold),
+    labelMedium = style(13, 16, FontWeight.Medium),
+    labelSmall = style(11, 14, FontWeight.Medium)
 )

@@ -19,7 +19,11 @@ data class GarageData(
     /** The rider's tank size; null means [FuelEstimator.DEFAULT_TANK_LITRES]. */
     val tankLitres: Double? = null,
     /** Recorded rides, oldest first. An entry with a null end is a ride still running. */
-    val rides: List<RideRecord> = emptyList()
+    val rides: List<RideRecord> = emptyList(),
+    /** Highest speed the bike has ever reported over the link, km/h; 0 before the first frame. */
+    val topSpeedKph: Int = 0,
+    /** When [topSpeedKph] was set; null when it was seeded from older ride records. */
+    val topSpeedAtMs: Long? = null
 )
 
 class GarageStore(dir: File) {
@@ -45,6 +49,8 @@ class GarageStore(dir: File) {
         data.lastOdometerKm?.let { put("lastOdometerKm", it) }
         put("notified", JSONArray(data.notified.toList()))
         data.tankLitres?.let { put("tankLitres", it) }
+        put("topSpeedKph", data.topSpeedKph)
+        data.topSpeedAtMs?.let { put("topSpeedAtMs", it) }
         put("barDrops", JSONArray().apply {
             data.barDrops.forEach { d ->
                 put(JSONObject().apply { put("odometerKm", d.odometerKm); put("toBars", d.toBars); put("atMs", d.atMs) })
@@ -137,6 +143,8 @@ class GarageStore(dir: File) {
                 )
             },
             lastOdometerKm = json.optIntOrNull("lastOdometerKm"),
+            topSpeedKph = json.optInt("topSpeedKph", 0),
+            topSpeedAtMs = json.optLongOrNull("topSpeedAtMs"),
             notified = (0 until notified.length()).map { notified.getString(it) }.toSet(),
             nextId = json.optLong("nextId", 1)
         )

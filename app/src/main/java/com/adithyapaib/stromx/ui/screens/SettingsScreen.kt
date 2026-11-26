@@ -10,140 +10,268 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.core.app.NotificationManagerCompat
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.adithyapaib.stromx.garage.FuelEstimator
+import com.adithyapaib.stromx.nav.NavigationController
+import com.adithyapaib.stromx.settings.Appearance
 import com.adithyapaib.stromx.settings.DistanceUnit
 import com.adithyapaib.stromx.settings.PairedBike
 import com.adithyapaib.stromx.settings.SettingsViewModel
-import com.adithyapaib.stromx.ui.components.BlockStyle
-import com.adithyapaib.stromx.ui.components.InkField
-import com.adithyapaib.stromx.ui.components.InkSegmented
-import com.adithyapaib.stromx.ui.components.Label
-import com.adithyapaib.stromx.ui.components.PressBlock
-import com.adithyapaib.stromx.ui.components.inkBox
-import com.adithyapaib.stromx.ui.theme.Dimens
-import com.adithyapaib.stromx.ui.theme.Ink
-import com.adithyapaib.stromx.ui.theme.InkSoft
-import com.adithyapaib.stromx.ui.theme.StromXTheme
-import com.adithyapaib.stromx.ui.theme.Spacing
-import com.adithyapaib.stromx.ui.theme.inkSwitchColors
+import com.adithyapaib.stromx.ui.components.GroupedSection
+import com.adithyapaib.stromx.ui.components.Gutter
+import com.adithyapaib.stromx.ui.components.IconTile
+import com.adithyapaib.stromx.ui.components.ListRow
+import com.adithyapaib.stromx.ui.components.MinTouch
+import com.adithyapaib.stromx.ui.components.RowDivider
+import com.adithyapaib.stromx.ui.components.ScreenTitle
+import com.adithyapaib.stromx.ui.components.Segmented
+import com.adithyapaib.stromx.ui.components.StromXIcons
+import com.adithyapaib.stromx.ui.components.SwitchRow
+import com.adithyapaib.stromx.ui.theme.StromX
+import java.util.Locale
+
+/** Preferences the Settings tab edits, with their setters. */
+data class SettingsState(
+    val pairedBike: PairedBike?,
+    val connected: Boolean,
+    val riderName: String,
+    val tankLitres: Double?,
+    val appearance: Appearance,
+    val unit: DistanceUnit,
+    val keepScreenOn: Boolean,
+    val alwaysOnDisplay: Boolean
+)
 
 @Composable
 fun SettingsScreen(
-    unit: DistanceUnit,
-    keepScreenOn: Boolean,
-    riderName: String,
+    state: SettingsState,
+    navigation: NavigationController,
+    onForgetBike: () -> Unit,
+    onRiderNameChange: (String) -> Unit,
+    onTankChange: (Double) -> Unit,
+    onAppearanceChange: (Appearance) -> Unit,
     onUnitChange: (DistanceUnit) -> Unit,
     onKeepScreenOnChange: (Boolean) -> Unit,
-    onRiderNameChange: (String) -> Unit,
-    pairedBike: PairedBike?,
-    onForgetBike: () -> Unit,
-    modifier: Modifier = Modifier,
-    /** Google Maps navigation controls (see [NavigationSection]). */
-    navigationSection: @Composable () -> Unit = {}
+    onAlwaysOnChange: (Boolean) -> Unit,
+    onPreviewAlwaysOn: () -> Unit,
+    onOpenDiagnostics: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
+    val c = StromX.colors
     val context = LocalContext.current
+    var confirmForget by remember { mutableStateOf(false) }
+    var editTank by remember { mutableStateOf(false) }
+
+    val navEnabled by navigation.enabled.collectAsStateWithLifecycle()
+    val listenerConnected by navigation.listenerConnected.collectAsStateWithLifecycle()
+    // Access is granted in system settings, so re-check whenever the screen comes back.
+    var accessGranted by remember { mutableStateOf(false) }
+    LifecycleResumeEffect(Unit) {
+        accessGranted = NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
+        onPauseOrDispose { }
+    }
+    val hasAccess = accessGranted || listenerConnected
+
     Column(
-        modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(Spacing.M),
-        verticalArrangement = Arrangement.spacedBy(Spacing.L)
+        modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = Gutter)
+            .padding(top = 12.dp, bottom = 24.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        Text("Settings", color = Ink, style = MaterialTheme.typography.headlineSmall)
+        ScreenTitle("Settings")
 
-        Column(verticalArrangement = Arrangement.spacedBy(Spacing.S)) {
-            Label("Welcome")
-            InkField(
-                riderName,
-                onRiderNameChange,
-                label = "Rider name",
-                hint = SettingsViewModel.DEFAULT_RIDER_NAME,
-                imeAction = ImeAction.Done
+        GroupedSection {
+            val bike = state.pairedBike
+            ListRow(
+                title = "V-Strom SX",
+                subtitle = when {
+                    state.connected -> "Connected" + (bike?.name?.takeIf { it.isNotEmpty() }?.let { " · ${it.take(5)}·····" } ?: "")
+                    bike != null -> "Paired · not connected"
+                    else -> "Not paired yet · connects to the first V-Strom it finds"
+                },
+                leading = { IconTile(StromXIcons.Bike, background = c.ink, tint = c.onInk, size = 40.dp) }
             )
-            Text(
-                "The cluster greets you with this name when the bike connects. Takes effect on the next connection.",
-                color = InkSoft,
-                style = MaterialTheme.typography.bodySmall
+            RowDivider()
+            ListRow(
+                "Fuel tank",
+                value = String.format(Locale.getDefault(), "%.1f L", state.tankLitres ?: FuelEstimator.DEFAULT_TANK_LITRES),
+                showChevron = true,
+                onClick = { editTank = true }
             )
+            if (bike != null) {
+                RowDivider()
+                ListRow("Forget this bike", titleColor = c.tint, onClick = { confirmForget = true })
+            }
         }
 
-        navigationSection()
-
-        Column(verticalArrangement = Arrangement.spacedBy(Spacing.S)) {
-            Label("Units")
-            InkSegmented(
-                options = listOf("km · °C", "mi · °F"),
-                selectedIndex = unit.ordinal,
-                onSelect = { onUnitChange(DistanceUnit.entries[it]) }
-            )
-        }
-
-        Column(verticalArrangement = Arrangement.spacedBy(Spacing.S)) {
-            Label("Display")
+        GroupedSection(footer = "Shown on the cluster as a greeting when the bike connects.") {
             Row(
-                Modifier
-                    .fillMaxWidth()
-                    .inkBox()
-                    .heightIn(min = Dimens.MinTouch)
-                    .toggleable(value = keepScreenOn, role = Role.Switch, onValueChange = onKeepScreenOnChange)
-                    .padding(horizontal = Spacing.M, vertical = Spacing.M - 4.dp),
-                verticalAlignment = Alignment.CenterVertically
+                Modifier.fillMaxWidth().heightIn(min = MinTouch).padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Column(Modifier.weight(1f)) {
-                    Text("Keep screen on", color = Ink, style = MaterialTheme.typography.titleMedium)
-                    Text("Only while connected to the bike.", color = InkSoft, style = MaterialTheme.typography.bodySmall)
-                }
-                Switch(checked = keepScreenOn, onCheckedChange = null, colors = inkSwitchColors())
+                Text("Name on cluster", color = c.label, style = StromX.type.body)
+                BasicTextField(
+                    value = state.riderName,
+                    onValueChange = onRiderNameChange,
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    textStyle = StromX.type.body.copy(color = c.labelTertiary, textAlign = TextAlign.End),
+                    cursorBrush = SolidColor(c.tintFill),
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
+                    decorationBox = { inner ->
+                        androidx.compose.foundation.layout.Box(contentAlignment = Alignment.CenterEnd) {
+                            if (state.riderName.isEmpty()) {
+                                Text(SettingsViewModel.DEFAULT_RIDER_NAME, Modifier.fillMaxWidth(), color = c.labelTertiary, style = StromX.type.body, textAlign = TextAlign.End)
+                            }
+                            inner()
+                        }
+                    }
+                )
             }
         }
 
-        Column(verticalArrangement = Arrangement.spacedBy(Spacing.S)) {
-            Label("Bluetooth")
-            if (pairedBike != null) {
-                Column(Modifier.fillMaxWidth().inkBox().padding(Spacing.M)) {
-                    Text(pairedBike.name.ifEmpty { "Paired bike" }, color = Ink, style = MaterialTheme.typography.titleMedium)
-                    Text(pairedBike.address, color = InkSoft, style = MaterialTheme.typography.bodySmall)
-                }
-                Text(
-                    "StromX only connects to this bike. Forget it to pair with a different one.",
-                    color = InkSoft,
-                    style = MaterialTheme.typography.bodySmall
-                )
-                PressBlock(text = "Forget bike", style = BlockStyle.Paper, onClick = onForgetBike)
-            } else {
-                Text(
-                    "No bike paired yet. With the ignition on, tap Connect: StromX pairs with the closest Suzuki cluster and remembers it.",
-                    color = InkSoft,
-                    style = MaterialTheme.typography.bodySmall
+        GroupedSection(header = "Display") {
+            ChoiceRow("Appearance") {
+                Segmented(
+                    options = listOf("Auto", "Light", "Black"),
+                    selected = state.appearance.ordinal,
+                    onSelect = { onAppearanceChange(Appearance.entries[it]) },
+                    modifier = Modifier.width(200.dp),
+                    track = c.fill.takeIf { c.isDark } ?: c.segment
                 )
             }
-            PressBlock(
-                text = "Bluetooth settings",
-                style = BlockStyle.Paper,
-                onClick = {
-                    try {
-                        context.startActivity(Intent(Settings.ACTION_BLUETOOTH_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                    } catch (_: ActivityNotFoundException) {
-                        // No settings handler on this device; nothing useful to do.
-                    }
-                }
-            )
+            RowDivider()
+            ChoiceRow("Units") {
+                Segmented(
+                    options = listOf("km · °C", "mi · °F"),
+                    selected = state.unit.ordinal,
+                    onSelect = { onUnitChange(DistanceUnit.entries[it]) },
+                    modifier = Modifier.width(150.dp),
+                    track = c.fill.takeIf { c.isDark } ?: c.segment
+                )
+            }
+            RowDivider()
+            SwitchRow("Keep screen on while riding", state.keepScreenOn, onKeepScreenOnChange)
         }
+
+        GroupedSection(
+            header = "Always-on ride display",
+            footer = "While connected, StromX dims to a black screen with speed, the next turn and fuel instead of letting the phone sleep. Double-tap to wake. Best on AMOLED screens; it uses some battery."
+        ) {
+            SwitchRow("Always-on ride display", state.alwaysOnDisplay, onAlwaysOnChange)
+            RowDivider()
+            ListRow("Preview", titleColor = c.tint, onClick = onPreviewAlwaysOn)
+        }
+
+        GroupedSection(
+            header = "Navigation",
+            footer = "Start directions in Google Maps and StromX shows the next turn on the bike's display."
+        ) {
+            SwitchRow("Send Maps turns to cluster", navEnabled, navigation::setEnabled)
+            if (navEnabled) {
+                RowDivider()
+                ListRow(
+                    "Notification access",
+                    value = if (hasAccess) "Allowed" else "Needed",
+                    showChevron = !hasAccess,
+                    onClick = if (hasAccess) null else {
+                        {
+                            try {
+                                context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                            } catch (_: ActivityNotFoundException) {
+                                // No settings screen for this on the device; nothing else to offer.
+                            }
+                        }
+                    }
+                )
+            }
+        }
+
+        GroupedSection {
+            ListRow("Diagnostics", subtitle = "Bluetooth link, frames and logs", showChevron = true, onClick = onOpenDiagnostics)
+            RowDivider()
+            ListRow("Version", value = appVersion(context))
+        }
+    }
+
+    if (confirmForget) {
+        ConfirmDialog(
+            title = "Forget this bike?",
+            text = "StromX disconnects and pairs with the next V-Strom SX it finds.",
+            confirm = "Forget",
+            onConfirm = { onForgetBike(); confirmForget = false },
+            onDismiss = { confirmForget = false }
+        )
+    }
+
+    if (editTank) {
+        var text by remember { mutableStateOf(String.format(Locale.US, "%.1f", state.tankLitres ?: FuelEstimator.DEFAULT_TANK_LITRES)) }
+        val parsed = text.replace(',', '.').toDoubleOrNull()?.takeIf { it in 5.0..40.0 }
+        AlertDialog(
+            onDismissRequest = { editTank = false },
+            title = { Text("Fuel tank") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Used for fuel left and range. The V-Strom SX tank holds about 12 L.", style = StromX.type.subhead)
+                    OutlinedTextField(
+                        value = text,
+                        onValueChange = { text = it },
+                        singleLine = true,
+                        suffix = { Text("L") },
+                        isError = parsed == null,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = parsed != null, onClick = { parsed?.let(onTankChange); editTank = false }) { Text("Save") }
+            },
+            dismissButton = { TextButton(onClick = { editTank = false }) { Text("Cancel") } }
+        )
     }
 }
 
-@Preview(showBackground = true, backgroundColor = 0xFFFFFFFF, widthDp = 390, heightDp = 700)
 @Composable
-private fun SettingsPreview() = StromXTheme {
-    SettingsScreen(DistanceUnit.KILOMETERS, true, "RIDER", {}, {}, {}, PairedBike("AA:BB:CC:DD:EE:FF", "SBM01xxxxxx"), {})
+private fun ChoiceRow(title: String, control: @Composable () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = MinTouch).padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(title, Modifier.weight(1f), color = StromX.colors.label, style = StromX.type.body)
+        control()
+    }
+}
+
+private fun appVersion(context: android.content.Context): String = try {
+    context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "—"
+} catch (_: Exception) {
+    "—"
 }

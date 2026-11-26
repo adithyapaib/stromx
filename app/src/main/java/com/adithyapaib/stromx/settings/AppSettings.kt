@@ -23,6 +23,17 @@ enum class DistanceUnit(val distance: String, val speed: String, val perKm: Doub
     }
 }
 
+/** Light, pitch black, or follow the system setting. */
+enum class Appearance {
+    AUTO,
+    LIGHT,
+    BLACK;
+
+    companion object {
+        fun fromName(name: String?): Appearance = entries.firstOrNull { it.name == name } ?: AUTO
+    }
+}
+
 /** The cluster this phone connects to; [name] is its advertised name, e.g. `SBM01xxxxxx`. */
 data class PairedBike(val address: String, val name: String)
 
@@ -39,6 +50,23 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     /** As typed; blank means [DEFAULT_RIDER_NAME]. */
     private val _riderName = MutableStateFlow(prefs.getString(KEY_RIDER_NAME, "").orEmpty())
     val riderName: StateFlow<String> = _riderName.asStateFlow()
+
+    private val _appearance = MutableStateFlow(Appearance.fromName(prefs.getString(KEY_APPEARANCE, null)))
+    val appearance: StateFlow<Appearance> = _appearance.asStateFlow()
+
+    /** Dim, pixel-sparse ride display instead of letting the screen time out while connected. */
+    private val _alwaysOnDisplay = MutableStateFlow(prefs.getBoolean(KEY_ALWAYS_ON, false))
+    val alwaysOnDisplay: StateFlow<Boolean> = _alwaysOnDisplay.asStateFlow()
+
+    fun setAppearance(appearance: Appearance) {
+        _appearance.value = appearance
+        prefs.edit().putString(KEY_APPEARANCE, appearance.name).apply()
+    }
+
+    fun setAlwaysOnDisplay(enabled: Boolean) {
+        _alwaysOnDisplay.value = enabled
+        prefs.edit().putBoolean(KEY_ALWAYS_ON, enabled).apply()
+    }
 
     fun setUnit(unit: DistanceUnit) {
         _unit.value = unit
@@ -61,6 +89,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         private const val KEY_UNIT = "unit"
         private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
         private const val KEY_RIDER_NAME = "rider_name"
+        private const val KEY_APPEARANCE = "appearance"
+        private const val KEY_ALWAYS_ON = "always_on_display"
         private const val KEY_BIKE_ADDRESS = "bike_address"
         private const val KEY_BIKE_NAME = "bike_name"
 

@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="stromx_window">#222222</color>
+    <!-- Silver light: the grouped background behind every screen. -->
+    <color name="stromx_window">#EDEEEB</color>
 </resources>
