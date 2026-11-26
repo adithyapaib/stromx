@@ -7,7 +7,7 @@
 
 An open-source Android companion app for the **Suzuki V-Strom SX** (250 cc adventure tourer).
 
-StromX connects directly over Bluetooth Low Energy (BLE) to the bike's instrument cluster without relying on the official Suzuki Ride Connect app. Built with a rally roadbook aesthetic, it renders high-contrast, sunlight-readable telemetry, provides intelligent self-learning fuel and range estimation, tracks ride history and scheduled maintenance, and forwards Google Maps turn-by-turn navigation directly to the cluster's dot-matrix screen.
+StromX connects directly over Bluetooth Low Energy (BLE) to the bike's instrument cluster without relying on the official Suzuki Ride Connect app. With a calm, iOS-style interface in light or pitch-black mode, it shows sunlight-readable telemetry, provides intelligent self-learning fuel and range estimation, tracks ride history and scheduled maintenance, and forwards Google Maps turn-by-turn navigation directly to the cluster's dot-matrix screen.
 
 Protocol reverse-engineering notes, frame structures, and packet captures are documented in [FINDINGS.md](FINDINGS.md). Full UI styling principles and component rules are detailed in [DESIGN.md](DESIGN.md).
 
@@ -17,11 +17,32 @@ Protocol reverse-engineering notes, frame structures, and packet captures are do
 
 - **Direct Cluster Communication**: Communicates directly with the bike's GATT characteristics (`0xFFF0` service: `0xFFF1` write, `0xFFF2` notify) without cloud accounts or the proprietary Suzuki app.
 - **Hidden Telemetry Unlocked**: Extracts and surfaces readings the stock app discards, including raw engine temperature reported in real time from byte 25.
-- **Rally Roadbook Interface**: Designed around a white-paper rally roadbook metaphor with bold ink typography and a single highlighter accent (`#FF5A1F`). All controls are sized for motorcycle gloves (minimum 56 dp targets).
+- **Calm, Glanceable Interface**: Four tabs, large titles, grouped cards and the Geist typeface, with a single electric-blue accent (`#2391FF`). Light, pitch-black (AMOLED) or system appearance. All controls are sized for motorcycle gloves (minimum 56 dp targets).
+- **Engine Overheat Warning**: The engine card turns blood red at 150 °C and tells you to pull over.
+- **Always-On Ride Display**: While connected, the phone can dim to a black screen with speed, the next turn and fuel instead of sleeping.
 - **Adaptive Fuel & Range Learning**: Because the cluster provides bar levels (1–6) rather than fuel consumption, StromX anchors to full fill-ups, learns the actual remaining fuel capacity corresponding to each gauge bar on your bike, and computes real-time fuel volume and range estimates with confidence intervals.
 - **Turn-by-Turn Navigation Forwarding**: Automatically parses Google Maps navigation notifications and streams distance, direction arrows, and ETAs directly to the bike's dot-matrix display.
-- **Telemetry-Driven Motion**: Rolling odometer digits, a dynamic roadbook roll scrolling 1 tick per 10 m, and tulip turn arrows that flow faster as bike speed increases.
-- **Handlebar Ready**: Seamless switching between portrait pocket view and a dual-column landscape layout with an ink navigation rail designed for handlebar mounts.
+---
+
+## Screenshots
+
+> These are renders of the approved design mockups, not captures from a device. They will be replaced with real screenshots once the redesigned app has been built and run on a phone.
+
+| Ride | Ride (black) | Engine overheating |
+|:---:|:---:|:---:|
+| <img src="docs/screenshots/ride.png" width="240" alt="Ride tab: speed, trips, fuel, engine, top speed and total"> | <img src="docs/screenshots/ride-dark.png" width="240" alt="Ride tab in pitch-black mode"> | <img src="docs/screenshots/engine-overheat.png" width="240" alt="Engine card turned blood red at 152 °C"> |
+
+| Trips | Garage · Fuel | Garage · Service |
+|:---:|:---:|:---:|
+| <img src="docs/screenshots/trips.png" width="240" alt="Trips tab: riding now, monthly totals and recent rides"> | <img src="docs/screenshots/garage-fuel.png" width="240" alt="Fuel economy, cost and fill-ups"> | <img src="docs/screenshots/garage-service.png" width="240" alt="Service reminders with countdowns"> |
+
+| Log fill-up | Settings | Settings (black) |
+|:---:|:---:|:---:|
+| <img src="docs/screenshots/log-fill-up.png" width="240" alt="Fill-up sheet with litres, cost, odometer and full tank"> | <img src="docs/screenshots/settings.png" width="240" alt="Settings tab"> | <img src="docs/screenshots/settings-dark.png" width="240" alt="Settings tab in pitch-black mode"> |
+
+| Looking for the bike | Always-on ride display |
+|:---:|:---:|
+| <img src="docs/screenshots/looking-for-bike.png" width="240" alt="Searching for the bike over Bluetooth"> | <img src="docs/screenshots/always-on-display.png" width="240" alt="Black always-on display with clock, speed and next turn"> |
 
 ---
 
@@ -29,12 +50,10 @@ Protocol reverse-engineering notes, frame structures, and packet captures are do
 
 | Tab | Key Features |
 |---|---|
-| **Ride** | **Live Telemetry & Roadbook Roll**<br>• Ruled status header displaying digital speed, an engine temperature gauge with a sliding needle (40–120 °C scale), and a 6-cell fuel gauge.<br>• Dynamic "Now" roadbook row displaying dead-reckoned trip distance that advances smoothly at current speed between 5-second BLE frames.<br>• Continuous event timeline logging start, Bluetooth connection, engine warmup (80 °C), stops, resumptions, fuel level changes, and connection drops.<br>• Stale telemetry detection: numbers dim and a `STALE` indicator appears if data stops arriving. |
-| **Rides** | **Ride Tracking & History**<br>• Real-time ride card showing elapsed timer, live distance, top speed, and average speed.<br>• Automatic fuel usage estimation based on historical efficiency and prevailing fuel prices.<br>• Ride persistence surviving app kills and background restarts.<br>• Historical ride log with comprehensive statistics and lifetime aggregates. |
-| **Fuel** | **Log & Self-Learning Range Estimator**<br>• Fill-up logging (litres, cost, auto-prefilled odometer from telemetry, full tank vs. top-up).<br>• Full-tank to full-tank economy tracking, cost per kilometre, monthly expense metrics, and visual trend charts.<br>• Automatic fill-up prompt triggered whenever the gauge rises by 2 or more bars.<br>• **Intelligent range estimation**: Computes remaining fuel and honest distance estimates (`± km`). Learns individual bar thresholds as the gauge steps down to eliminate drift.<br>• Low-fuel alerts triggered at 40 km remaining with a one-tap shortcut to find nearby petrol stations. |
-| **Service** | **Predictive Maintenance Countdown**<br>• Service reminders tracked by odometer distance and/or calendar time (Engine Oil, Oil Filter, Chain Care, Brake Pads, General Service).<br>• Quick-add presets with factory intervals for the V-Strom SX.<br>• Ruled countdown meters that turn highlighter orange when due soon or overdue.<br>• Android system notifications when maintenance thresholds approach. |
-| **Logs** | **BLE Diagnostics & Tracing**<br>• Real-time GATT connection state monitoring, frame capture rates, and packet payloads (`FFF0` / `FFF1` / `FFF2`).<br>• Verbose BLE diagnostic toggle for link parameter updates, RSSI, and MTU changes.<br>• One-tap export, share, and clear tools for debugging OTA packet streams. |
-| **Settings** | **Configuration & Calibration**<br>• Rider name input for cluster welcome greeting packets (`command '6'`).<br>• Google Maps navigation integration toggle, notification listener permissions status, and cluster arrow symbol tester.<br>• Units switch (`km / °C` vs. `mi / °F`).<br>• Screen wake lock ("Keep screen on while connected").<br>• Bluetooth device management and system Bluetooth shortcuts. |
+| **Ride** | • Live speed with Trip A and Trip B; numbers dim and say "No update" if data stops arriving.<br>• 6-bar fuel gauge with range and an honest `± km` margin.<br>• Engine temperature card that turns blood red at 150 °C.<br>• All-time top speed and total distance, with this month's kilometres.<br>• Find fuel and Log fill-up shortcuts, and the next service when it's due.<br>• Without the bike: a "Looking for your V-Strom" card and what the bike last reported. |
+| **Trips** | • Start, stop or discard a ride; rides survive app restarts.<br>• Live elapsed time, distance and top speed while riding.<br>• This month's distance, rides and hours.<br>• Ride history with average speed, top speed and estimated fuel used. |
+| **Garage** | **Fuel**: fill-up logging (odometer filled in from the bike), full-tank to full-tank economy, cost per km and monthly spend. A fill-up prompt appears when the gauge rises by 2 or more bars, and range is learned bar by bar.<br>**Service**: reminders by distance and/or time with presets, countdown bars, "Mark as done today", and Android notifications when they come due. |
+| **Settings** | • Paired bike, fuel tank size, and the rider name sent to the cluster as a greeting.<br>• Appearance (Auto, Light or Black), units (km/°C or mi/°F) and keep screen on.<br>• Always-on ride display, with a preview.<br>• Google Maps turns on the cluster, with the notification access status.<br>• **Diagnostics**: GATT state, last frame, verbose BLE logging, copy/share/clear log, and the cluster arrow test. |
 
 ---
 
@@ -95,45 +114,39 @@ app/src/main/java/com/adithyapaib/stromx/
 │   ├── MapsNotificationListener.kt     # Android NotificationListenerService implementation
 │   ├── NavigationBus.kt          # Reactive broadcast bus decoupling nav events from BLE
 │   └── NavigationController.kt   # Periodic transmission loop for turn frames
-├── ride/                         # Ride recording & roadbook generator
+├── ride/                         # Ride records & event log
 │   ├── Rides.kt                  # Ride session tracker, trip distances, and speed stats
 │   └── Roadbook.kt               # Generates roadbook event rows from telemetry changes
 ├── settings/                     # User preferences
-│   └── AppSettings.kt            # Units, wake lock, rider name, paired MAC persistence
+│   └── AppSettings.kt            # Units, appearance, always-on, wake lock, rider name, paired bike
 └── ui/                           # Jetpack Compose UI layer
-    ├── StromXApp.kt              # Main scaffold, navigation bar/rail, haptic dispatcher
+    ├── StromXApp.kt              # Four-tab shell, sheets, always-on display switching, haptics
     ├── Format.kt                 # Number, distance, and temperature formatting helpers
-    ├── components/               # Reusable roadbook components
-    │   ├── Charts.kt             # Custom Canvas economy line charts & monthly expense bars
-    │   ├── Components.kt         # Ruled ink containers, tactile press blocks, segmented controls
-    │   ├── FuelLeft.kt           # Custom tank capacity visualization & learned bar indicators
-    │   ├── Icons.kt              # Hand-drawn Canvas tab icons matching roadbook stroke style
-    │   ├── RoadbookUi.kt         # Signature telemetry header box and animated roadbook roll
-    │   └── Tulips.kt             # Vector tulip navigation pictograms
-    ├── screens/                  # App screen implementations
-    │   ├── DashboardScreen.kt    # Main Ride screen with roadbook roll & live telemetry
-    │   ├── FuelScreen.kt         # Fuel consumption tracking, charts, & tank settings
-    │   ├── LogsScreen.kt         # Raw BLE trace viewer with copy & share actions
-    │   ├── NavigationSection.kt  # Google Maps integration status & cluster arrow tester
-    │   ├── RidesScreen.kt        # Completed ride log & active ride tracker
-    │   ├── ServiceScreen.kt      # Maintenance checklist and countdown meters
-    │   └── SettingsScreen.kt     # Preferences & BLE pairing management
-    └── theme/                    # Design tokens (Color, Dimens, Theme, Type)
+    ├── Dates.kt                  # Date and time labels ("Today, 7:42 AM")
+    ├── components/               # Shared parts
+    │   ├── Icons.kt              # Outline icon set drawn from SVG paths
+    │   └── Ui.kt                 # Cards, grouped lists, segmented control, switches, buttons, gauges
+    ├── screens/
+    │   ├── RideScreen.kt         # Live telemetry, engine warning, top speed, "looking for bike"
+    │   ├── TripsScreen.kt        # Ride recording and history
+    │   ├── GarageScreen.kt       # Fuel log and service reminders
+    │   ├── Sheets.kt             # Log fill-up and new reminder bottom sheets
+    │   ├── SettingsScreen.kt     # Preferences, appearance, Maps turns, pairing
+    │   ├── DiagnosticsScreen.kt  # BLE state, raw log, cluster arrow test
+    │   └── AodScreen.kt          # Always-on ride display
+    └── theme/                    # Palette, light and black schemes, Geist type scale
 ```
 
 ---
 
 ## Design System
 
-StromX implements a distinct, utilitarian design system named **"The Roadbook Roll"**:
+Full rules are in [DESIGN.md](DESIGN.md). In short:
 
-- **Paper & Ink Ground**: Pure white background (`#FFFFFF`) with dense, deep ink (`#141414`) borders and typewritten monospace text (`#575757`). No shadows, no gradients, and no rounded card elevations.
-- **Rally Highlighter Accent**: High-visibility orange (`#FF5A1F`) is strictly reserved for live, changing data: the active roadbook row, the temperature needle, low-fuel alerts, and primary buttons.
-- **Sunlight Readability**: Built with high-contrast text and tabular figures so that critical values (speed, engine temp, distance) can be read in under one second during midday sun.
-- **Physical Controls**: Buttons behave like physical motorcycle switchgear—they sink 3 dp, invert into ink, and trigger tactile haptic ticks on tap.
-- **Typography**:
-  - **Saira Condensed**: Numeric readouts, titles, and button faces.
-  - **Roboto Mono**: Labels, units, detail keys, and diagnostic traces.
+- **Palette**: white `#FFFFFF`, silver light `#EDEEEB`, heather gray `#CCC7BF`, dark night `#31393C` and electric blue `#2391FF`, plus blood red `#8A0303` reserved for the engine overheat warning.
+- **Light and pitch black**: Black mode uses true `#000000` for AMOLED screens; gauges light up in electric blue.
+- **Typography**: Geist throughout (bundled, SIL OFL), sized like iOS text styles, with tabular figures for every changing number.
+- **Sunlight and gloves**: high-contrast text, one big reading per card, and 56 dp minimum touch targets.
 
 ---
 
@@ -207,5 +220,4 @@ Key test coverage includes:
 This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
 
 ### Third-Party Credits & Assets
-- **Saira Condensed**: SIL Open Font License (OFL).
-- **Roboto Mono**: Apache License, Version 2.0.
+- **Geist**: SIL Open Font License (OFL); see [licenses/Geist-OFL.txt](licenses/Geist-OFL.txt).
